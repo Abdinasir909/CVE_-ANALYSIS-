@@ -1,0 +1,20 @@
+# App defaults, secrets belong in .env, not here.
+
+nvd:
+  api_url: https://services.nvd.nist.gov/rest/json/cves/2.0
+  # Default sample window when start-date/ end-date are omitted (published dates).
+  default_days_back: 7
+  # Polite delay between paginated requests (seconds). Without an API key the NVD
+  # rate limit is ca. 5 requests / 30s, so 6s is the default.
+  request_delay_seconds: 6
+
+paths:
+  raw: data/raw
+  processed: data/processed
+
+etl:
+  spark_app_name: CveAnalysisBatchETL
+
+producer:
+  delay_seconds: 1
+  max_events: 100

@@ -1,0 +1,11 @@
+# This file lists all dependencies for the project.
+
+pyspark==4.2.0
+requests==2.32.5
+python-dotenv==1.2.2
+PyYAML==6.0.3
+kafka-python-ng==2.2.3
+pymongo==4.17.0
+pytest==9.1.1
+snowflake-connector-python==4.7.3
+tenacity==9.1.2
