@@ -1,4 +1,4 @@
-"""JSON logging setup so log output is machine-parseable."""
+# JSON logging setup so log output is machine-parseable.
 
 from __future__ import annotations
 
@@ -17,8 +17,8 @@ _RESERVED = {
 }
 
 
+# Render each record as a single-line JSON object.
 class JsonFormatter(logging.Formatter):
-    """Render each record as a single-line JSON object."""
 
     def format(self, record: logging.LogRecord) -> str:
         payload = {
@@ -36,11 +36,8 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, default=str)
 
 
+# Configure the root logger once, idempotently. Safe to call from CLI entrypoints; subsequent calls only adjust the level.
 def setup_logging(level: str = "INFO") -> None:
-    """Configure the root logger once, idempotently.
-
-    Safe to call from CLI entrypoints; subsequent calls only adjust the level.
-    """
     root = logging.getLogger()
     root.setLevel(level.upper())
 
@@ -52,12 +49,12 @@ def setup_logging(level: str = "INFO") -> None:
         root.addHandler(handler)
 
 
+# Return a named logger (root handler config applied via setup_logging).
 def get_logger(name: str) -> logging.Logger:
-    """Return a named logger (root handler config applied via setup_logging)."""
     return logging.getLogger(name)
 
 
+# Adjust the root logger level without re-adding handlers.
 def set_level(level: Optional[str]) -> None:
-    """Adjust the root logger level without re-adding handlers."""
     if level:
         logging.getLogger().setLevel(level.upper())

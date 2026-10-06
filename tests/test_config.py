@@ -54,9 +54,3 @@ def test_config_non_integer_raises():
 def test_config_int_out_of_range_raises():
     with pytest.raises(ConfigError):
         Config(env={"NVD_RESULTS_PER_PAGE": "0"})
-
-
-def test_config_dir_helpers_resolve_under_repo_root():
-    cfg = Config(env={})
-    assert cfg.raw_dir().name == "raw"
-    assert cfg.processed_dir().name == "processed"

@@ -178,6 +178,79 @@ def find_duplicate_cve_ids(records: Iterable[Any]) -> List[str]:
     return sorted(k for k, count in seen.items() if count > 1)
 
 
+# sourceIdentifier classification + report helpers
+
+# The four buckets a sourceIdentifier can fall into.
+SOURCE_TYPES = ("vendor_direct", "third_party_db", "cert_national", "other")
+
+# Known product-vendor domains (the sourceIdentifier local part is an email).
+_VENDOR_DOMAINS = frozenset({
+    "github.com", "microsoft.com", "redhat.com", "apple.com", "google.com",
+    "oracle.com", "ibm.com", "mongodb.com", "open-xchange.com", "joomla.org",
+    "wazuh.com", "sveltejs.com", "apache.org", "canonical.com", "debian.org",
+    "suse.com", "gitlab.com", "adobe.com", "cisco.com", "vmware.com",
+    "intel.com", "amd.com", "nvidia.com", "jenkins.io", "grafana.com",
+    "elastic.co", "hashicorp.com", "postgresql.org", "mariadb.com",
+    "mariadb.org", "php.net", "python.org", "nodejs.org", "nginx.org",
+})
+
+# Third-party vulnerability databases / security-research vendors.
+_THIRD_PARTY_DOMAINS = frozenset({
+    "vuldb.com", "vulncheck.com", "wpscan.com", "wordfence.com", "patchstack.com",
+    "rapid7.com", "snyk.io", "talosintelligence.com", "checkmarx.com", "wiz.io",
+})
+
+# Government TLD suffixes (used only when the identifier itself has no "cert").
+_GOV_TLD_SUFFIXES = (
+    ".gov", ".mil", ".gouv.fr", ".gob.mx", ".gob.ar", ".gob.co",
+    ".go.jp", ".or.jp", ".gc.ca", ".gov.uk", ".gov.au", ".gov.cn",
+    ".gov.in", ".gov.br",
+)
+
+
+# Put a sourceIdentifier into one of SOURCE_TYPES, first match wins.
+def classify_source_type(source_identifier: Any) -> str:
+    if not isinstance(source_identifier, str) or not source_identifier.strip():
+        return "other"
+    text = source_identifier.strip()
+    domain = text.rsplit("@", 1)[-1].lower()
+
+    if "cert" in text.lower() or domain.endswith(_GOV_TLD_SUFFIXES):
+        return "cert_national"
+    if domain in _THIRD_PARTY_DOMAINS:
+        return "third_party_db"
+    if domain in _VENDOR_DOMAINS:
+        return "vendor_direct"
+    return "other"
+
+
+# Count source-type values into the four SOURCE_TYPES categories.
+def source_type_distribution(values: Iterable[Any]) -> Dict[str, int]:
+    distribution: Dict[str, int] = {t: 0 for t in SOURCE_TYPES}
+    for value in values:
+        key = str(value).strip() if value is not None else ""
+        distribution[key if key in distribution else "other"] += 1
+    return distribution
+
+
+# Count vendor-resolution outcomes from a vendor_source iterable.
+def vendor_resolution(sources: Iterable[Any]) -> Dict[str, int]:
+    result = {
+        "resolved_via_affected": 0,
+        "resolved_via_cpe_fallback": 0,
+        "still_unresolved": 0,
+    }
+    for source in sources:
+        key = str(source).strip() if source is not None else "unresolved"
+        if key == "affected":
+            result["resolved_via_affected"] += 1
+        elif key == "cpe_fallback":
+            result["resolved_via_cpe_fallback"] += 1
+        else:
+            result["still_unresolved"] += 1
+    return result
+
+
 # Spark column expressions
 
 # Spark expression that maps a severity string to its rank.

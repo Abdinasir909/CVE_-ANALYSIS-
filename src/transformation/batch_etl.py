@@ -14,11 +14,14 @@ from typing import Any, Dict, Optional
 from pyspark.sql import SparkSession, functions as F
 from pyspark.sql.types import StringType, StructField, StructType
 
-from src.transformation.cpe_parser import find_primary_cpe23_uri, parse_cpe23_uri
+from src.transformation.cpe_parser import resolve_vendor_product
 from src.transformation.quality_checks import (
     SEVERITY_RANK_MAP,
+    classify_source_type,
     is_valid_cve_id_expr,
     severity_rank_expr,
+    source_type_distribution,
+    vendor_resolution,
 )
 from src.utils.config import Config
 from src.utils.logging_config import get_logger, setup_logging
@@ -33,31 +36,38 @@ FINAL_COLS = [
     "cvss_version", "cvss_score", "severity", "severity_rank",
     "attack_vector", "attack_complexity", "privileges_required", "user_interaction",
     "cwe_ids", "vendor", "product", "cpe_uri", "source_identifier",
+    "cve_source_type", "affected_status", "affected_version_range",
 ]
 
-# Vendor/product extraction from the CPE configurations.
+# Vendor/product extraction from "affected" first, CPE configurations fallback.
 
 _RESOLVED_SCHEMA = StructType(
     [
         StructField("vendor", StringType(), True),
         StructField("product", StringType(), True),
         StructField("cpe_uri", StringType(), True),
+        StructField("affected_status", StringType(), True),
+        StructField("affected_version_range", StringType(), True),
+        StructField("vendor_source", StringType(), True),
     ]
 )
 
 
-# Pull vendor/product from the first CPE 2.3 URI in the configurations.
-def _resolve_cpe(configurations_json):
-    uri = find_primary_cpe23_uri(configurations_json)
-    parsed = parse_cpe23_uri(uri) if uri else None
+# Pull vendor/product from the "affected" structure, falling back to CPE.
+def _resolve_affected(affected_json, configurations_json):
+    resolved = resolve_vendor_product(affected_json, configurations_json)
     return (
-        parsed["vendor"] if parsed else "",
-        parsed["product"] if parsed else "",
-        uri or "",
+        resolved["vendor"],
+        resolved["product"],
+        resolved["cpe_uri"],
+        resolved["affected_status"],
+        resolved["affected_version_range"],
+        resolved["vendor_source"],
     )
 
 
-_resolve_udf = F.udf(_resolve_cpe, _RESOLVED_SCHEMA)
+_resolve_udf = F.udf(_resolve_affected, _RESOLVED_SCHEMA)
+_source_type_udf = F.udf(classify_source_type, StringType())
 
 
 # Set HADOOP_HOME so Spark can write files on Windows (needs winutils.exe).
@@ -150,15 +160,20 @@ def transform(spark: SparkSession, input_path: str) -> "F.DataFrame":
         F.coalesce(v31_data["userInteraction"], v30_data["userInteraction"]).alias("user_interaction"),
         _cwe_ids_expr().alias("cwe_ids"),
         F.col("sourceIdentifier").alias("source_identifier"),
+        F.to_json(F.col("affected")).alias("_affected_json"),
         F.to_json(F.col("configurations")).alias("_configurations_json"),
     )
 
-    resolved = _resolve_udf(df["_configurations_json"])
+    resolved = _resolve_udf(df["_affected_json"], df["_configurations_json"])
     df = (
         df.withColumn("vendor", resolved["vendor"])
         .withColumn("product", resolved["product"])
         .withColumn("cpe_uri", resolved["cpe_uri"])
-        .drop("_configurations_json")
+        .withColumn("affected_status", resolved["affected_status"])
+        .withColumn("affected_version_range", resolved["affected_version_range"])
+        .withColumn("vendor_source", resolved["vendor_source"])
+        .withColumn("cve_source_type", _source_type_udf(F.col("source_identifier")))
+        .drop("_affected_json", "_configurations_json")
     )
 
     # Derived fields.
@@ -252,6 +267,11 @@ def run_etl(config: Config, input_path: str, output_dir: Path) -> Dict[str, Any]
             F.col("vendor").isNull() | (F.trim(F.col("vendor")) == "")
         ).count()
 
+        vendor_sources = [r["vendor_source"] for r in deduped.select("vendor_source").collect()]
+        source_types = [r["cve_source_type"] for r in deduped.select("cve_source_type").collect()]
+        vendor_resolution_report = vendor_resolution(vendor_sources)
+        source_type_distribution_report = source_type_distribution(source_types)
+
         severity_counts = deduped.groupBy("severity").count().collect()
         severity_distribution: Dict[str, int] = {s: 0 for s in SEVERITY_RANK_MAP}
         severity_distribution["null"] = 0
@@ -292,6 +312,8 @@ def run_etl(config: Config, input_path: str, output_dir: Path) -> Dict[str, Any]
             "records_missing_cvss": records_missing_cvss,
             "records_missing_description": records_missing_description,
             "records_missing_vendor": records_missing_vendor,
+            "vendor_resolution": vendor_resolution_report,
+            "source_type_distribution": source_type_distribution_report,
             "severity_distribution": severity_distribution,
             "min_published_date": min_published_date,
             "max_published_date": max_published_date,

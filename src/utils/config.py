@@ -1,4 +1,4 @@
-"""Loads config from settings.yaml (defaults) and .env (secrets/overrides)."""
+# Loads config from settings.yaml (defaults) and .env (secrets/overrides).
 
 from __future__ import annotations
 
@@ -33,13 +33,14 @@ _ENV_DEFAULTS: Dict[str, str] = {
 }
 
 
+# Raised when configuration is missing or invalid.
 class ConfigError(RuntimeError):
-    """Raised when configuration is missing or invalid."""
+    pass
 
 
+# Typed, validated application configuration.
 @dataclass
 class Config:
-    """Typed, validated application configuration."""
 
     # from .env / os.environ (secrets & environment-specific) 
     kafka_bootstrap_servers: str
@@ -75,7 +76,7 @@ class Config:
         settings_file: Optional[Path] = None,
     ) -> None:
 
-        #Load .env first so it can override settings.yaml defaults, then override with env dict if provided.
+        # Load .env first so it can override settings.yaml defaults, then override with env dict if provided.
         load_dotenv(REPO_ROOT / ".env")
         env = dict(os.environ) if env is None else dict(env)
 
