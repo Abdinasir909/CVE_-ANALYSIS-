@@ -62,21 +62,19 @@ def test_find_primary_empty():
     assert find_primary_cpe23_uri({}) is None
 
 
-# Pulls vendor and product from the first affectedData entry.
+# Pulls vendor and product from the first affectedData entry; NA placeholders are
+# skipped, "Unknown" vendor keeps the product, and missing input yields empty fields.
 def test_extract_affected_basic():
     affected = [{"source": "s", "affectedData": [{"vendor": "ceph", "product": "ceph"}]}]
     result = extract_affected(affected)
     assert result["vendor"] == "ceph"
     assert result["product"] == "ceph"
 
-
-# NA placeholders are skipped, "Unknown" vendor keeps the product, missing input yields empty.
-def test_extract_affected_edge_cases():
-    affected = [
+    skipped = [
         {"affectedData": [{"vendor": "n/a", "product": "n/a"}]},
         {"affectedData": [{"vendor": "redhat", "product": "openshift"}]},
     ]
-    result = extract_affected(affected)
+    result = extract_affected(skipped)
     assert result["vendor"] == "redhat"
     assert result["product"] == "openshift"
 

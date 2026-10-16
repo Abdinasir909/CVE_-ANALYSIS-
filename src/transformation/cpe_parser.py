@@ -121,6 +121,7 @@ def _first_cpe(cpes: Any) -> str:
     return ""
 
 
+# Walk the affected array and yield each affectedData entry, tolerating missing keys.
 def _iter_affected_data(affected: Any):
     if isinstance(affected, str):
         text = affected.strip()
@@ -187,7 +188,7 @@ def extract_affected(affected: Any) -> Dict[str, str]:
     }
 
 
-# Resolve vendor/product from "affected" first, falling back to the old CPE path.
+# Resolve vendor/product from "affected" first, falling back to the CPE path.
 def resolve_vendor_product(affected: Any, configurations: Any = None) -> Dict[str, str]:
     extracted = extract_affected(affected)
     vendor = extracted["vendor"]

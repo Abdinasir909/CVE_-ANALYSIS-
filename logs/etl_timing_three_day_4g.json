@@ -1,0 +1,22 @@
+{
+  "label": "three-day",
+  "input": "data/raw_windows/three_day_2026-08-28_to_2026-08-30.json",
+  "spark_driver_memory": "4g",
+  "free_ram_gb_before_each_run": [
+    2.9,
+    3.0,
+    3.27
+  ],
+  "records": 749,
+  "repeats": 3,
+  "durations_s": [
+    27.5,
+    26.9,
+    26.7
+  ],
+  "mean_s": 27.0,
+  "min_s": 26.7,
+  "max_s": 27.5,
+  "spread_s": 0.8,
+  "stdev_s": 0.4
+}

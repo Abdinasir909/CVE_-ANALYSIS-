@@ -48,8 +48,8 @@ def test_required_fields_invalid():
     assert any("description" in e for e in errors)
 
 
-# Malformed cve_id and wrong event_type are rejected.
-def test_invalid_cve_id_and_type():
+# Wrong cve_id, event_type, cvss_score, or severity values are all rejected.
+def test_invalid_field_values():
     event = _valid_event()
     event["cve_id"] = "not-a-cve"
     valid, errors = validate_event_contract(event)
@@ -62,20 +62,6 @@ def test_invalid_cve_id_and_type():
     assert not valid
     assert any("event_type" in e for e in errors)
 
-
-# Nullable fields (cvss/severity/vendor/product) may be null and still pass.
-def test_nullable_fields_are_valid():
-    event = _valid_event()
-    event["cvss_score"] = None
-    event["severity"] = None
-    event["vendor"] = None
-    event["product"] = None
-    valid, errors = validate_event_contract(event)
-    assert valid, errors
-
-
-# Out-of-range cvss and invalid severity are rejected.
-def test_invalid_cvss_and_severity():
     event = _valid_event()
     event["cvss_score"] = 12.0
     valid, errors = validate_event_contract(event)
@@ -87,6 +73,17 @@ def test_invalid_cvss_and_severity():
     valid, errors = validate_event_contract(event)
     assert not valid
     assert any("severity" in e for e in errors)
+
+
+# Nullable fields (cvss/severity/vendor/product) may be null and still pass.
+def test_nullable_fields_are_valid():
+    event = _valid_event()
+    event["cvss_score"] = None
+    event["severity"] = None
+    event["vendor"] = None
+    event["product"] = None
+    valid, errors = validate_event_contract(event)
+    assert valid, errors
 
 
 # event_id must be a uuid4 and event_timestamp ISO-8601 UTC.

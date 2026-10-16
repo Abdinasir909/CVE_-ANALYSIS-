@@ -20,16 +20,15 @@ from src.transformation.quality_checks import (
     classify_source_type,
     is_valid_cve_id_expr,
     severity_rank_expr,
-    source_type_distribution,
-    vendor_resolution,
+    source_type_distribution_counts,
+    vendor_resolution_counts,
 )
 from src.utils.config import Config
 from src.utils.logging_config import get_logger, setup_logging
 
 logger = get_logger(__name__)
 
-# Canonical output column order (also the CSV header). Kept at module level so
-# the replay producer's regression test can assert the exact header it maps.
+# Canonical output column order, and the CSV header the replay producer maps.
 FINAL_COLS = [
     "cve_id", "published", "published_date", "year", "month", "quarter",
     "days_since_published", "last_modified", "vuln_status", "description_en",
@@ -102,9 +101,12 @@ def get_spark_session(config: Config) -> SparkSession:
     return (
         SparkSession.builder.appName(config.spark_app_name)
         .master("local[*]")
-        .config("spark.sql.shuffle.partitions", "4")
+        .config("spark.sql.shuffle.partitions", "20")
         .config("spark.ui.enabled", "false")
         .config("spark.sql.session.timeZone", "UTC")
+        # Driver heap from SPARK_DRIVER_MEMORY (default 4g).
+        # spark.executor.memory is not set: in local[*] the executor shares this JVM.
+        .config("spark.driver.memory", config.spark_driver_memory)
         .getOrCreate()
     )
 
@@ -136,14 +138,19 @@ def transform(spark: SparkSession, input_path: str) -> "F.DataFrame":
     cve = raw.select(F.explode("vulnerabilities").alias("vuln")).select("vuln.cve.*")
 
     metrics = F.col("metrics")
-    # Null-safe: try_element_at returns null on empty arrays (Spark 4 raises INVALID_ARRAY_INDEX on [0]).
+    # try_element_at is null-safe; [0] raises INVALID_ARRAY_INDEX on an empty array.
+    # Element 1 is NVD's own score where it exists, otherwise the CNA's.
     v31 = F.try_element_at(metrics["cvssMetricV31"], F.lit(1))
     v30 = F.try_element_at(metrics["cvssMetricV30"], F.lit(1))
     v2 = F.try_element_at(metrics["cvssMetricV2"], F.lit(1))
+    # v4.0 is read last, after v2: it is a different scale from v3.1, so preferring it
+    # would mix scales within one dataset.
+    v40 = F.try_element_at(metrics["cvssMetricV40"], F.lit(1))
 
     v31_data = v31["cvssData"]
     v30_data = v30["cvssData"]
     v2_data = v2["cvssData"]
+    v40_data = v40["cvssData"]
 
     df = cve.select(
         F.col("id").alias("cve_id"),
@@ -151,13 +158,13 @@ def transform(spark: SparkSession, input_path: str) -> "F.DataFrame":
         F.col("lastModified").alias("last_modified"),
         F.col("vulnStatus").alias("vuln_status"),
         F.expr("try_element_at(filter(descriptions, d -> d.lang == 'en'), 1).value").alias("description_en"),
-        F.coalesce(v31_data["version"], v30_data["version"], v2_data["version"]).alias("cvss_version"),
-        F.coalesce(v31_data["baseScore"], v30_data["baseScore"], v2_data["baseScore"]).cast("double").alias("cvss_score"),
-        F.coalesce(v31_data["baseSeverity"], v30_data["baseSeverity"], v2["baseSeverity"]).alias("severity"),
-        F.coalesce(v31_data["attackVector"], v30_data["attackVector"]).alias("attack_vector"),
-        F.coalesce(v31_data["attackComplexity"], v30_data["attackComplexity"]).alias("attack_complexity"),
-        F.coalesce(v31_data["privilegesRequired"], v30_data["privilegesRequired"]).alias("privileges_required"),
-        F.coalesce(v31_data["userInteraction"], v30_data["userInteraction"]).alias("user_interaction"),
+        F.coalesce(v31_data["version"], v30_data["version"], v2_data["version"], v40_data["version"]).alias("cvss_version"),
+        F.coalesce(v31_data["baseScore"], v30_data["baseScore"], v2_data["baseScore"], v40_data["baseScore"]).cast("double").alias("cvss_score"),
+        F.coalesce(v31_data["baseSeverity"], v30_data["baseSeverity"], v2["baseSeverity"], v40_data["baseSeverity"]).alias("severity"),
+        F.coalesce(v31_data["attackVector"], v30_data["attackVector"], v40_data["attackVector"]).alias("attack_vector"),
+        F.coalesce(v31_data["attackComplexity"], v30_data["attackComplexity"], v40_data["attackComplexity"]).alias("attack_complexity"),
+        F.coalesce(v31_data["privilegesRequired"], v30_data["privilegesRequired"], v40_data["privilegesRequired"]).alias("privileges_required"),
+        F.coalesce(v31_data["userInteraction"], v30_data["userInteraction"], v40_data["userInteraction"]).alias("user_interaction"),
         _cwe_ids_expr().alias("cwe_ids"),
         F.col("sourceIdentifier").alias("source_identifier"),
         F.to_json(F.col("affected")).alias("_affected_json"),
@@ -192,9 +199,11 @@ def transform(spark: SparkSession, input_path: str) -> "F.DataFrame":
 
 # Simple check: does the path contain a glob character?
 def _matches_glob(path: str) -> bool:
-    return any(ch in path for ch in "*?[")
+    # '{' included because Spark accepts Hadoop brace globs, e.g. dir/file_{a,b}.json.
+    return any(ch in path for ch in "*?[{")
 
 
+# Keep one row per cve_id, the one with the newest last_modified.
 def _dedupe_by_cve_id(df: "F.DataFrame") -> "F.DataFrame":
     from pyspark.sql import Window
 
@@ -267,10 +276,17 @@ def run_etl(config: Config, input_path: str, output_dir: Path) -> Dict[str, Any]
             F.col("vendor").isNull() | (F.trim(F.col("vendor")) == "")
         ).count()
 
-        vendor_sources = [r["vendor_source"] for r in deduped.select("vendor_source").collect()]
-        source_types = [r["cve_source_type"] for r in deduped.select("cve_source_type").collect()]
-        vendor_resolution_report = vendor_resolution(vendor_sources)
-        source_type_distribution_report = source_type_distribution(source_types)
+        # Grouped in Spark rather than collected: both columns have few distinct values.
+        vendor_source_counts = [
+            (row["vendor_source"], row["count"])
+            for row in deduped.groupBy("vendor_source").count().collect()
+        ]
+        source_type_counts = [
+            (row["cve_source_type"], row["count"])
+            for row in deduped.groupBy("cve_source_type").count().collect()
+        ]
+        vendor_resolution_report = vendor_resolution_counts(vendor_source_counts)
+        source_type_distribution_report = source_type_distribution_counts(source_type_counts)
 
         severity_counts = deduped.groupBy("severity").count().collect()
         severity_distribution: Dict[str, int] = {s: 0 for s in SEVERITY_RANK_MAP}
@@ -338,6 +354,7 @@ def run_etl(config: Config, input_path: str, output_dir: Path) -> Dict[str, Any]
         spark.stop()
 
 
+# CLI flags: the input path or glob, and the directory the outputs are written to.
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description="Run the CVE Analysis batch ETL.")
     parser.add_argument("--input", required=True, help="NVD raw JSON path (file or glob).")
@@ -349,6 +366,7 @@ def parse_args(argv=None):
     return parser.parse_args(argv)
 
 
+# Entry point: run the ETL and report the quality figures, returning a shell exit code.
 def main(argv=None) -> int:
     args = parse_args(argv)
     config = Config()

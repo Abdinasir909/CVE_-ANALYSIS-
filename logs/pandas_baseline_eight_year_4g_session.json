@@ -1,0 +1,25 @@
+{
+  "engine": "pandas",
+  "pandas_version": "2.2.3",
+  "input_files": 25,
+  "input_bytes": 2462512827,
+  "wall_seconds": 262.1,
+  "free_ram_gb_before": 3.67,
+  "peak_python_heap_mb": 2970.2,
+  "failed": false,
+  "input_records": 282755,
+  "output_records": 282755,
+  "duplicate_records_removed": 0,
+  "records_dropped_invalid_cve_id": 0,
+  "records_missing_cvss": 15147,
+  "records_missing_description": 0,
+  "records_missing_vendor": 17539,
+  "severity_distribution": {
+    "MEDIUM": 119725,
+    "HIGH": 105281,
+    "CRITICAL": 32058,
+    "null": 15147,
+    "LOW": 10474,
+    "NONE": 70
+  }
+}

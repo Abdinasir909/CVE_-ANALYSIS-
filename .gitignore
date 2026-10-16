@@ -20,18 +20,26 @@ build/
 .coverage
 htmlcov/
 
-# Data (raw & processed ignored, keep .gitkeep) 
-data/raw/*
-data/processed/*
-!data/raw/.gitkeep
-!data/processed/.gitkeep
+# Data: nothing under data/ is versioned. Inputs and outputs run to hundreds of
+# megabytes and are reproducible from the raw layer; the figures they support are
+# quoted in the report and in logs/, which is versioned.
+data/*/
 
-# Logs 
+# Logs: run logs are not versioned, but the measurement artefacts are.
+# Section 4.6 of the report cites logs/etl_timing_*.json and
+# logs/pandas_baseline_*.json as the source of every timing it quotes.
 *.log
-logs/
+logs/*
+!logs/etl_timing_*.json
+!logs/pandas_baseline_*.json
+!logs/etl_memory_probe_*.json
+!logs/e2e_*.json
 
 # OS / editor
 Thumbs.db
 .DS_Store
 .idea/
 .vscode/
+
+# Local run state
+state/

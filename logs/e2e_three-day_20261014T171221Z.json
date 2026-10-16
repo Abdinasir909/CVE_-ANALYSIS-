@@ -1,0 +1,93 @@
+{
+  "environment": {
+    "run": "three-day",
+    "commit": "28b415cffadb7b1c61340b8d8bf1c94fad64654f",
+    "working_tree_dirty": false,
+    "etl_input": "data/raw_windows/three_day_2026-08-28_to_2026-08-30.json",
+    "python": "3.11.9",
+    "python_executable": "C:\\Users\\user\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\\python.exe",
+    "pyspark": "4.2.0",
+    "java": "java version \"23\" 2024-09-17",
+    "platform": "Windows-10-10.0.26300-SP0",
+    "cpu_count": 16,
+    "total_ram_gb": null,
+    "spark_config": {
+      "master": "local[*]",
+      "driver_memory": "8g",
+      "executor_memory": "8g",
+      "shuffle_partitions": 20
+    },
+    "nvd_api_key_present": false
+  },
+  "window": {
+    "start": "2026-08-28",
+    "end": "2026-08-30"
+  },
+  "started": "2026-10-14T17:12:22.578728+00:00",
+  "stages": [
+    {
+      "stage": "ingest",
+      "measured": false,
+      "start": null,
+      "end": null,
+      "duration_seconds": null,
+      "records": null,
+      "throughput_per_second": null,
+      "note": "not fetched (slice): the three-day input is a published-date slice cut from an existing raw chunk by scripts/extract_published_window.py, so no fetch belongs to this run"
+    },
+    {
+      "stage": "etl",
+      "measured": true,
+      "start": "2026-10-14T17:12:22.578728+00:00",
+      "end": "2026-10-14T17:12:51.945369+00:00",
+      "duration_seconds": 29.4,
+      "records": 749,
+      "throughput_per_second": 25.5,
+      "repeats": 1,
+      "durations_s": [
+        29.4
+      ],
+      "mean_seconds": 29.4,
+      "min_seconds": 29.4,
+      "max_seconds": 29.4,
+      "spread_seconds": 0.0,
+      "output_dir": "data/processed_3day",
+      "input_records": 749,
+      "output_records": 749,
+      "records_missing_cvss": 72,
+      "records_missing_vendor": 142,
+      "note": "single measurement"
+    },
+    {
+      "stage": "replay",
+      "measured": false,
+      "start": null,
+      "end": null,
+      "duration_seconds": null,
+      "records": null,
+      "throughput_per_second": null,
+      "note": "skipped with --skip-streaming; Kafka or MongoDB unavailable"
+    },
+    {
+      "stage": "consume",
+      "measured": false,
+      "start": null,
+      "end": null,
+      "duration_seconds": null,
+      "records": null,
+      "throughput_per_second": null,
+      "note": "skipped with --skip-streaming; Kafka or MongoDB unavailable"
+    },
+    {
+      "stage": "load",
+      "measured": false,
+      "start": null,
+      "end": null,
+      "duration_seconds": null,
+      "records": null,
+      "throughput_per_second": null,
+      "note": "not run: stage 5 requires --with-load because it TRUNCATEs RAW.CVE_RAW and replaces whatever the warehouse holds"
+    }
+  ],
+  "ended": "2026-10-14T17:12:51.945369+00:00"
+}

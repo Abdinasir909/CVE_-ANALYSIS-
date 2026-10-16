@@ -127,7 +127,7 @@ def validate_event_contract(event: Dict[str, Any]) -> Tuple[bool, List[str]]:
     return (len(errors) == 0, errors)
 
 
-# Alias matching the R7 spec name.
+# Alias used by the event-contract callers.
 validate_event = validate_event_contract
 
 
@@ -178,7 +178,7 @@ def find_duplicate_cve_ids(records: Iterable[Any]) -> List[str]:
     return sorted(k for k, count in seen.items() if count > 1)
 
 
-# sourceIdentifier classification + report helpers
+# sourceIdentifier classification and tallies
 
 # The four buckets a sourceIdentifier can fall into.
 SOURCE_TYPES = ("vendor_direct", "third_party_db", "cert_national", "other")
@@ -225,30 +225,40 @@ def classify_source_type(source_identifier: Any) -> str:
 
 
 # Count source-type values into the four SOURCE_TYPES categories.
-def source_type_distribution(values: Iterable[Any]) -> Dict[str, int]:
+def source_type_distribution_counts(pairs: Iterable[Any]) -> Dict[str, int]:
     distribution: Dict[str, int] = {t: 0 for t in SOURCE_TYPES}
-    for value in values:
+    for value, count in pairs:
         key = str(value).strip() if value is not None else ""
-        distribution[key if key in distribution else "other"] += 1
+        distribution[key if key in distribution else "other"] += count
     return distribution
 
 
+# Count source types one value at a time; the counts variant above does the grouping.
+def source_type_distribution(values: Iterable[Any]) -> Dict[str, int]:
+    return source_type_distribution_counts((value, 1) for value in values)
+
+
 # Count vendor-resolution outcomes from a vendor_source iterable.
-def vendor_resolution(sources: Iterable[Any]) -> Dict[str, int]:
+def vendor_resolution_counts(pairs: Iterable[Any]) -> Dict[str, int]:
     result = {
         "resolved_via_affected": 0,
         "resolved_via_cpe_fallback": 0,
         "still_unresolved": 0,
     }
-    for source in sources:
+    for source, count in pairs:
         key = str(source).strip() if source is not None else "unresolved"
         if key == "affected":
-            result["resolved_via_affected"] += 1
+            result["resolved_via_affected"] += count
         elif key == "cpe_fallback":
-            result["resolved_via_cpe_fallback"] += 1
+            result["resolved_via_cpe_fallback"] += count
         else:
-            result["still_unresolved"] += 1
+            result["still_unresolved"] += count
     return result
+
+
+# Count resolution outcomes one value at a time; the counts variant above groups them.
+def vendor_resolution(sources: Iterable[Any]) -> Dict[str, int]:
+    return vendor_resolution_counts((source, 1) for source in sources)
 
 
 # Spark column expressions

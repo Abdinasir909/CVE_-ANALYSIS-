@@ -27,6 +27,10 @@ API_URL = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 DEFAULT_RESULTS_PER_PAGE = 2000  # NVD maximum for resultsPerPage
 _HTTP_TIMEOUT_SECONDS = 30
 
+# NVD rejects a single pubStartDate->pubEndDate range longer than ~120 days, so
+# wider windows are split into sub-ranges of at most this many days (inclusive).
+MAX_RANGE_DAYS = 120
+
 # Statuses treated as transient -> retried with exponential backoff.
 _TRANSIENT_STATUS = {429, 500, 502, 503, 504}
 
@@ -48,7 +52,7 @@ def _should_retry(exc: BaseException) -> bool:
     return False
 
 
-# GET one page of CVEs, retries transient failures and returns parsed JSON.
+# GET one page of CVEs, retrying transient failures with exponential backoff.
 @retry(
     stop=stop_after_attempt(5),
     wait=wait_exponential(multiplier=1, min=2, max=60),
@@ -112,6 +116,17 @@ def _resolve_dates(start_date: Optional[str], end_date: Optional[str], default_d
     return start, end
 
 
+# Split a (start, end) window into inclusive sub-ranges of at most max_days.
+def _split_range(start: datetime, end: datetime, max_days: int) -> List[tuple]:
+    chunks = []
+    current = start
+    while current <= end:
+        chunk_end = min(current + timedelta(days=max_days - 1), end)
+        chunks.append((current, chunk_end))
+        current = chunk_end + timedelta(days=1)
+    return chunks
+
+
 # Include the apiKey header only when we have one.
 def _build_headers(api_key: str) -> Dict[str, str]:
     headers = {"Accept": "application/json"}
@@ -150,7 +165,58 @@ def _merge_pages(pages: List[Dict[str, Any]]) -> Dict[str, Any]:
     return merged
 
 
-# CLI entrypoint: fetch all pages and write one merged JSON file.
+# Fetch one date window into a single JSON file and return the record count.
+def _fetch_range_to_file(
+    start: datetime,
+    end: datetime,
+    output_path: Path,
+    api_url: str,
+    results_per_page: int,
+    headers: Dict[str, str],
+    delay: float,
+) -> int:
+    base_params = _build_params(start, end, results_per_page)
+    pages: List[Dict[str, Any]] = []
+    start_index = 0
+    total_results: Optional[int] = None
+
+    while True:
+        params = dict(base_params)
+        params["startIndex"] = start_index
+
+        logger.info("fetching page", extra={"startIndex": start_index, "resultsPerPage": results_per_page})
+        page = _fetch_page(api_url, params, headers)
+
+        total_results = int(page.get("totalResults", 0))
+        page_count = len(page.get("vulnerabilities", []) or [])
+        pages.append(page)
+        logger.info("page received", extra={"records": page_count, "totalResults": total_results})
+
+        if total_results is None or page_count == 0:
+            break
+        start_index += page_count
+        if start_index >= total_results:
+            break
+        time.sleep(delay)
+
+    merged = _merge_pages(pages)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(json.dumps(merged, indent=2, ensure_ascii=False), encoding="utf-8")
+
+    count = len(merged.get("vulnerabilities", []))
+    logger.info(
+        "ingestion complete",
+        extra={
+            "total_records": count,
+            "output_path": str(output_path),
+            "start": start.strftime("%Y-%m-%d"),
+            "end": end.strftime("%Y-%m-%d"),
+        },
+    )
+    return count
+
+
+# CLI entrypoint: fetch the date range in chunks of at most MAX_RANGE_DAYS days.
 def main(argv=None) -> int:
     args = parse_args(argv)
     config = Config()
@@ -165,64 +231,34 @@ def main(argv=None) -> int:
         raise SystemExit(f"--results-per-page must be 1..2000, got {results_per_page}")
 
     headers = _build_headers(config.nvd_api_key)
-    base_params = _build_params(start, end, results_per_page)
-
-    start_str = start.strftime("%Y-%m-%d")
-    end_str = end.strftime("%Y-%m-%d")
-
-    output_path = Path(args.output) if args.output else config.raw_dir() / f"nvd_cves_{start_str}_to_{end_str}.json"
+    chunks = _split_range(start, end, MAX_RANGE_DAYS)
 
     if args.dry_run:
         print(f"NVD API URL: {api_url}")
-        print(f"Params: {json.dumps(base_params, indent=2)}")
+        print(f"Results per page: {results_per_page}")
+        print(f"Chunks ({len(chunks)}):")
+        for cs, ce in chunks:
+            print(f"  {cs.date()} to {ce.date()}")
         print(f"Headers: {list(headers.keys())} (apiKey {'present' if headers.get('apiKey') else 'absent'})")
-        print(f"Output would be: {output_path}")
         return 0
 
     # Delay between requests: >=6s without a key, ca 0.6s with a key.
     delay = 0.6 if config.nvd_api_key else max(6.0, config.nvd_request_delay_seconds)
 
-    pages: List[Dict[str, Any]] = []
-    start_index = 0
-    total_results: Optional[int] = None
-
+    raw_dir = config.raw_dir()
+    total = 0
     try:
-        while True:
-            params = dict(base_params)
-            params["startIndex"] = start_index
-
-            logger.info("fetching page", extra={"startIndex": start_index, "resultsPerPage": results_per_page})
-            page = _fetch_page(api_url, params, headers)
-
-            total_results = int(page.get("totalResults", 0))
-            page_count = len(page.get("vulnerabilities", []) or [])
-            pages.append(page)
-            logger.info("page received", extra={"records": page_count, "totalResults": total_results})
-
-            if total_results is None or page_count == 0:
-                break
-            start_index += page_count
-            if start_index >= total_results:
-                break
-            time.sleep(delay)
+        for cs, ce in chunks:
+            if args.output and len(chunks) == 1:
+                output_path = Path(args.output)
+            else:
+                output_path = raw_dir / f"nvd_cves_{cs.strftime('%Y-%m-%d')}_to_{ce.strftime('%Y-%m-%d')}.json"
+            total += _fetch_range_to_file(cs, ce, output_path, api_url, results_per_page, headers, delay)
     except (NvdApiError, requests.RequestException) as exc:
         logger.error("NVD ingestion failed", extra={"error": str(exc)})
         return 2
 
-    merged = _merge_pages(pages)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(merged, indent=2, ensure_ascii=False), encoding="utf-8")
-
-    logger.info(
-        "ingestion complete",
-        extra={
-            "total_records": len(merged.get("vulnerabilities", [])),
-            "output_path": str(output_path),
-            "start": start_str,
-            "end": end_str,
-        },
-    )
-    print(f"Saved {len(merged.get('vulnerabilities', []))} CVE records to {output_path}")
+    print(f"Saved {total} CVE records across {len(chunks)} chunk(s)")
     return 0
 
 

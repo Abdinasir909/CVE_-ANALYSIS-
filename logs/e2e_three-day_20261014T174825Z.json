@@ -1,0 +1,100 @@
+{
+  "environment": {
+    "run": "three-day",
+    "commit": "28b415cffadb7b1c61340b8d8bf1c94fad64654f",
+    "working_tree_dirty": true,
+    "etl_input": "data/raw_windows/three_day_2026-08-28_to_2026-08-30.json",
+    "python": "3.11.9",
+    "python_executable": "C:\\Users\\user\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\\python.exe",
+    "pyspark": "4.2.0",
+    "java": "java version \"23\" 2024-09-17",
+    "platform": "Windows-10-10.0.26300-SP0",
+    "cpu_count": 16,
+    "total_ram_gb": null,
+    "spark_config": {
+      "master": "local[*]",
+      "driver_memory": "8g",
+      "executor_memory": "8g",
+      "shuffle_partitions": 20
+    },
+    "nvd_api_key_present": false
+  },
+  "window": {
+    "start": "2026-08-28",
+    "end": "2026-08-30"
+  },
+  "started": "2026-10-14T17:48:26.431846+00:00",
+  "stages": [
+    {
+      "stage": "ingest",
+      "measured": false,
+      "start": null,
+      "end": null,
+      "duration_seconds": null,
+      "records": null,
+      "throughput_per_second": null,
+      "note": "not fetched (slice): the three-day input is a published-date slice cut from an existing raw chunk by scripts/extract_published_window.py, so no fetch belongs to this run"
+    },
+    {
+      "stage": "etl",
+      "measured": true,
+      "start": "2026-10-14T17:48:26.431846+00:00",
+      "end": "2026-10-14T17:49:00.672503+00:00",
+      "duration_seconds": 34.2,
+      "records": 749,
+      "throughput_per_second": 21.9,
+      "repeats": 1,
+      "durations_s": [
+        34.2
+      ],
+      "mean_seconds": 34.2,
+      "min_seconds": 34.2,
+      "max_seconds": 34.2,
+      "spread_seconds": 0.0,
+      "output_dir": "data/processed_3day",
+      "input_records": 749,
+      "output_records": 749,
+      "records_missing_cvss": 72,
+      "records_missing_vendor": 142,
+      "note": "single measurement"
+    },
+    {
+      "stage": "replay",
+      "measured": true,
+      "start": "2026-10-14T17:49:01.000060+00:00",
+      "end": "2026-10-14T17:49:02.241721+00:00",
+      "duration_seconds": 1.2,
+      "records": 749,
+      "throughput_per_second": 603.5,
+      "note": "single measurement",
+      "skipped": 0,
+      "input_csv": "cves_cleaned.csv",
+      "max_events": 749,
+      "delay_seconds": 0
+    },
+    {
+      "stage": "consume",
+      "measured": true,
+      "start": "2026-10-14T17:49:02.243810+00:00",
+      "end": "2026-10-14T17:49:03.779890+00:00",
+      "duration_seconds": 1.5,
+      "records": 0,
+      "throughput_per_second": null,
+      "note": "consumer failed; Kafka and MongoDB reachable?",
+      "failed": true,
+      "stderr_tail": "umer is BrokerMetadata(nodeId='coordinator-1', host='localhost', port=9092, rack=None)\"}\n{\"ts\": \"2026-10-14T17:49:03.350041+00:00\", \"level\": \"INFO\", \"logger\": \"kafka.coordinator\", \"message\": \"Discovered coordinator coordinator-1 for group cve-analysis-mongo-debug-consumer\"}\n{\"ts\": \"2026-10-14T17:49:03.350041+00:00\", \"level\": \"INFO\", \"logger\": \"kafka.coordinator\", \"message\": \"Starting new heartbeat thread\"}\n{\"ts\": \"2026-10-14T17:49:03.351553+00:00\", \"level\": \"INFO\", \"logger\": \"kafka.coordinator.consumer\", \"message\": \"Revoking previously assigned partitions set() for group cve-analysis-mongo-debug-consumer\"}\n{\"ts\": \"2026-10-14T17:49:03.351553+00:00\", \"level\": \"INFO\", \"logger\": \"kafka.conn\", \"message\": \"<BrokerConnection node_id=coordinator-1 host=localhost:9092 <connecting> [IPv6 ('::1', 9092, 0, 0)]>: connecting to localhost:9092 [('::1', 9092, 0, 0) IPv6]\"}\n{\"ts\": \"2026-10-14T17:49:03.352988+00:00\", \"level\": \"INFO\", \"logger\": \"kafka.conn\", \"message\": \"<BrokerConnection node_id=coordinator-1 host=localhost:9092 <connecting> [IPv6 ('::1', 9092, 0, 0)]>: Connection complete.\"}\n{\"ts\": \"2026-10-14T17:49:03.352988+00:00\", \"level\": \"INFO\", \"logger\": \"kafka.conn\", \"message\": \"<BrokerConnection node_id=bootstrap-0 host=localhost:9092 <connected> [IPv6 ('::1', 9092, 0, 0)]>: Closing connection. \"}\n{\"ts\": \"2026-10-14T17:49:03.352988+00:00\", \"level\": \"ERROR\", \"logger\": \"__main__\", \"message\": \"consumer error\", \"error\": \"Invalid file descriptor: -1\"}\n{\"ts\": \"2026-10-14T17:49:03.352988+00:00\", \"level\": \"INFO\", \"logger\": \"kafka.coordinator\", \"message\": \"Stopping heartbeat thread\"}\n{\"ts\": \"2026-10-14T17:49:03.353995+00:00\", \"level\": \"INFO\", \"logger\": \"kafka.conn\", \"message\": \"<BrokerConnection node_id=coordinator-1 host=localhost:9092 <connected> [IPv6 ('::1', 9092, 0, 0)]>: Closing connection. \"}\n{\"ts\": \"2026-10-14T17:49:03.354996+00:00\", \"level\": \"INFO\", \"logger\": \"__main__\", \"message\": \"consumer finished\", \"consumed\": 0, \"inserted\": 0, \"duplicates\": 0, \"invalid\": 0, \"failed\": 0}\n"
+    },
+    {
+      "stage": "load",
+      "measured": false,
+      "start": null,
+      "end": null,
+      "duration_seconds": null,
+      "records": null,
+      "throughput_per_second": null,
+      "note": "not run: stage 5 requires --with-load because it TRUNCATEs RAW.CVE_RAW and replaces whatever the warehouse holds"
+    }
+  ],
+  "mongo_reset": "dropped collection, 100 documents removed",
+  "ended": "2026-10-14T17:49:03.779890+00:00"
+}

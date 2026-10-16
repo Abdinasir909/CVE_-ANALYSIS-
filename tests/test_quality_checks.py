@@ -6,10 +6,11 @@ from src.transformation.quality_checks import (
     find_duplicate_cve_ids,
     is_valid_cve_id,
     is_valid_cvss_score,
-    severity_distribution,
     severity_rank,
     source_type_distribution,
+    source_type_distribution_counts,
     vendor_resolution,
+    vendor_resolution_counts,
 )
 
 
@@ -49,22 +50,6 @@ def test_is_valid_cvss_score():
     assert not is_valid_cvss_score(True)  # bool is a subclass of int
 
 
-# Severity distribution counts each bucket and sends missing values to "null".
-def test_severity_distribution():
-    records = [
-        {"severity": "HIGH"},
-        {"severity": "HIGH"},
-        {"severity": "CRITICAL"},
-        {"severity": None},
-        {"severity": "LOW"},
-    ]
-    dist = severity_distribution(records)
-    assert dist["HIGH"] == 2
-    assert dist["CRITICAL"] == 1
-    assert dist["LOW"] == 1
-    assert dist["null"] == 1
-
-
 # Duplicate cve_ids are returned, none otherwise.
 def test_find_duplicate_cve_ids():
     records = [
@@ -85,22 +70,34 @@ def test_classify_source_type():
     assert classify_source_type(None) == "other"
 
 
-# Distribution counts each type and puts unknowns in "other".
-def test_source_type_distribution():
-    values = ["vendor_direct", "vendor_direct", "third_party_db", "cert_national", None]
-    assert source_type_distribution(values) == {
-        "vendor_direct": 2,
-        "third_party_db": 1,
-        "cert_national": 1,
-        "other": 1,
+# The ETL passes pre-aggregated (value, count) pairs, so both variants must agree.
+def test_vendor_resolution_counts_matches_row_by_row():
+    rows = ["affected"] * 5 + ["cpe_fallback"] * 3 + [None, "", "unresolved"]
+    pairs = [("affected", 5), ("cpe_fallback", 3), (None, 1), ("", 1), ("unresolved", 1)]
+
+    assert vendor_resolution_counts(pairs) == vendor_resolution(rows)
+    assert vendor_resolution_counts(pairs) == {
+        "resolved_via_affected": 5,
+        "resolved_via_cpe_fallback": 3,
+        "still_unresolved": 3,
     }
 
 
-# Vendor resolution counts affected / cpe_fallback / unresolved.
-def test_vendor_resolution():
-    sources = ["affected", "affected", "cpe_fallback", "unresolved", None]
-    assert vendor_resolution(sources) == {
-        "resolved_via_affected": 2,
-        "resolved_via_cpe_fallback": 1,
-        "still_unresolved": 2,
+def test_source_type_distribution_counts_matches_row_by_row():
+    rows = ["vendor_direct"] * 4 + ["cert_national"] * 2 + ["something_else", None]
+    pairs = [("vendor_direct", 4), ("cert_national", 2), ("something_else", 1), (None, 1)]
+
+    assert source_type_distribution_counts(pairs) == source_type_distribution(rows)
+    # An unrecognised value and a null both fall into "other", not into a new key.
+    assert source_type_distribution_counts(pairs) == {
+        "vendor_direct": 4,
+        "third_party_db": 0,
+        "cert_national": 2,
+        "other": 2,
     }
+
+
+# Whitespace is trimmed before bucketing, on the pre-aggregated path too.
+def test_counts_variants_trim_whitespace():
+    assert vendor_resolution_counts([(" affected ", 2)])["resolved_via_affected"] == 2
+    assert source_type_distribution_counts([(" vendor_direct ", 2)])["vendor_direct"] == 2

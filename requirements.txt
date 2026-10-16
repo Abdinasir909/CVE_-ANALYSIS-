@@ -9,3 +9,8 @@ pymongo==4.17.0
 pytest==9.1.1
 snowflake-connector-python==4.7.3
 tenacity==9.1.2
+
+# Used by the analysis scripts in scripts/, not by the pipeline itself.
+ijson==3.5.1
+pandas==2.2.3
+pyarrow==22.0.0

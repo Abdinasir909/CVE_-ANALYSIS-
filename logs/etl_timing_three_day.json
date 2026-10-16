@@ -1,0 +1,16 @@
+{
+  "label": "three-day",
+  "input": "data/raw_windows/three_day_2026-08-28_to_2026-08-30.json",
+  "records": 749,
+  "repeats": 3,
+  "durations_s": [
+    45.6,
+    50.5,
+    42.6
+  ],
+  "mean_s": 46.2,
+  "min_s": 42.6,
+  "max_s": 50.5,
+  "spread_s": 7.9,
+  "stdev_s": 4.0
+}

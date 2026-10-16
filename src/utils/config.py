@@ -28,8 +28,11 @@ _ENV_DEFAULTS: Dict[str, str] = {
     "SNOWFLAKE_WAREHOUSE": "cve_analysis_wh",
     "SNOWFLAKE_DATABASE": "cve_analysis",
     "NVD_API_KEY": "",
-    "NVD_RESULTS_PER_PAGE": "100",
+    "NVD_RESULTS_PER_PAGE": "2000",
     "LOG_LEVEL": "INFO",
+    # Spark driver heap for the batch ETL. In local[*] the executor shares the
+    # driver JVM, so there is no separate executor heap to size.
+    "SPARK_DRIVER_MEMORY": "4g",
 }
 
 
@@ -64,6 +67,7 @@ class Config:
     raw_path: str
     processed_path: str
     spark_app_name: str
+    spark_driver_memory: str
     producer_delay_seconds: float
     producer_max_events: int
 
@@ -99,6 +103,7 @@ class Config:
         self.snowflake_warehouse = self._get_str(env, "SNOWFLAKE_WAREHOUSE")
         self.snowflake_database = self._get_str(env, "SNOWFLAKE_DATABASE")
         self.nvd_api_key = self._get_str(env, "NVD_API_KEY", required=False)
+        self.spark_driver_memory = self._get_str(env, "SPARK_DRIVER_MEMORY")
 
         self.nvd_results_per_page = self._get_int(env, "NVD_RESULTS_PER_PAGE", min_value=1, max_value=2000)
         self.log_level = self._get_str(env, "LOG_LEVEL").upper()

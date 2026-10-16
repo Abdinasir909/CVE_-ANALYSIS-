@@ -1,0 +1,105 @@
+{
+  "environment": {
+    "run": "eight-year",
+    "commit": "6289b261a8fa00e6a5087b9aea39fbda6f29a790",
+    "working_tree_dirty": true,
+    "etl_input": "data/raw/nvd_cves_{2018-09-22_to_2019-01-19,2019-01-20_to_2019-05-19,2019-05-20_to_2019-09-16,2019-09-17_to_2020-01-14,2020-01-15_to_2020-05-13,2020-05-14_to_2020-09-10,2020-09-11_to_2021-01-08,2021-01-09_to_2021-05-08,2021-05-09_to_2021-09-05,2021-09-06_to_2022-01-03,2022-01-04_to_2022-05-03,2022-05-04_to_2022-08-31,2022-09-01_to_2022-12-29,2022-12-30_to_2023-04-28,2023-04-29_to_2023-08-26,2023-08-27_to_2023-12-24,2023-12-25_to_2024-04-22,2024-04-23_to_2024-08-20,2024-08-21_to_2024-12-18,2024-12-19_to_2025-04-17,2025-04-18_to_2025-08-15,2025-08-16_to_2025-12-13,2025-12-14_to_2026-04-12,2026-04-13_to_2026-08-10,2026-08-11_to_2026-09-21}.json",
+    "python": "3.11.9",
+    "python_executable": "C:\\Users\\user\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\\python.exe",
+    "pyspark": "4.2.0",
+    "java": "java version \"23\" 2024-09-17",
+    "platform": "Windows-10-10.0.26300-SP0",
+    "cpu_count": 16,
+    "total_ram_gb": null,
+    "spark_config": {
+      "master": "local[*]",
+      "driver_memory": "8g",
+      "executor_memory": "8g",
+      "shuffle_partitions": 20
+    },
+    "nvd_api_key_present": false
+  },
+  "window": {
+    "start": "2018-09-22",
+    "end": "2026-09-21"
+  },
+  "started": "2026-10-14T18:09:23.163895+00:00",
+  "stages": [
+    {
+      "stage": "ingest",
+      "measured": false,
+      "start": null,
+      "end": null,
+      "duration_seconds": null,
+      "records": null,
+      "throughput_per_second": null,
+      "note": "skipped with --skip-ingest; not measured for this run"
+    },
+    {
+      "stage": "etl",
+      "measured": true,
+      "start": "2026-10-14T18:09:23.163895+00:00",
+      "end": "2026-10-14T18:13:27.119235+00:00",
+      "duration_seconds": 122.0,
+      "records": 282755,
+      "throughput_per_second": 2317.7,
+      "repeats": 2,
+      "durations_s": [
+        133.6,
+        110.4
+      ],
+      "mean_seconds": 122.0,
+      "min_seconds": 110.4,
+      "max_seconds": 133.6,
+      "spread_seconds": 23.2,
+      "output_dir": "data/processed_8y",
+      "stdev_seconds": 16.4,
+      "input_records": 282755,
+      "output_records": 282755,
+      "records_missing_cvss": 15147,
+      "records_missing_vendor": 17539,
+      "note": "mean of 2 repetitions; spread 23.2 s"
+    },
+    {
+      "stage": "replay",
+      "measured": true,
+      "start": "2026-10-14T18:13:28.767041+00:00",
+      "end": "2026-10-14T18:15:48.377410+00:00",
+      "duration_seconds": 139.6,
+      "records": 282755,
+      "throughput_per_second": 2025.3,
+      "note": "single measurement",
+      "skipped": 0,
+      "input_csv": "cves_cleaned.csv",
+      "max_events": 282755,
+      "delay_seconds": 0
+    },
+    {
+      "stage": "consume",
+      "measured": true,
+      "start": "2026-10-14T18:15:53.526650+00:00",
+      "end": "2026-10-14T18:18:13.823799+00:00",
+      "duration_seconds": 140.3,
+      "records": 282755,
+      "throughput_per_second": 2015.4,
+      "note": "single measurement; 2 attempts needed, the earlier ones lost the kafka-python-ng heartbeat race",
+      "duplicates": 0,
+      "invalid": 0,
+      "failed_inserts": 0,
+      "max_events": 282755,
+      "client_attempts": 2
+    },
+    {
+      "stage": "load",
+      "measured": false,
+      "start": null,
+      "end": null,
+      "duration_seconds": null,
+      "records": null,
+      "throughput_per_second": null,
+      "note": "not run: stage 5 requires --with-load because it TRUNCATEs RAW.CVE_RAW and replaces whatever the warehouse holds"
+    }
+  ],
+  "mongo_reset": "dropped collection, 85147 documents removed",
+  "ended": "2026-10-14T18:18:15.224829+00:00"
+}

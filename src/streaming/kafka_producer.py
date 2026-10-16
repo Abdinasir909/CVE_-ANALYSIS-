@@ -36,6 +36,7 @@ def _coerce_utc_timestamp(value: Any) -> Any:
     return text
 
 
+# Build one event in the shared contract from a cleaned CSV row.
 def build_event(
     *,
     cve_id: str,

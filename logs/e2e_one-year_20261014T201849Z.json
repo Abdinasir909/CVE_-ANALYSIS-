@@ -1,0 +1,111 @@
+{
+  "environment": {
+    "run": "one-year",
+    "commit": "6289b261a8fa00e6a5087b9aea39fbda6f29a790",
+    "working_tree_dirty": true,
+    "etl_input": "data/raw/nvd_cves_{2025-09-22_to_2025-12-21,2025-12-22_to_2026-03-21,2026-03-22_to_2026-06-21,2026-06-22_to_2026-09-21}.json",
+    "python": "3.11.9",
+    "python_executable": "C:\\Users\\user\\AppData\\Local\\Microsoft\\WindowsApps\\PythonSoftwareFoundation.Python.3.11_qbz5n2kfra8p0\\python.exe",
+    "pyspark": "4.2.0",
+    "java": "java version \"23\" 2024-09-17",
+    "platform": "Windows-10-10.0.26300-SP0",
+    "cpu_count": 16,
+    "total_ram_gb": null,
+    "spark_config": {
+      "master": "local[*]",
+      "driver_memory": "8g",
+      "executor_memory": "8g",
+      "shuffle_partitions": 20
+    },
+    "nvd_api_key_present": false
+  },
+  "window": {
+    "start": "2025-09-22",
+    "end": "2026-09-21"
+  },
+  "started": "2026-10-14T20:18:50.287307+00:00",
+  "stages": [
+    {
+      "stage": "ingest",
+      "measured": false,
+      "start": null,
+      "end": null,
+      "duration_seconds": null,
+      "records": null,
+      "throughput_per_second": null,
+      "note": "skipped with --skip-ingest; not measured for this run"
+    },
+    {
+      "stage": "etl",
+      "measured": true,
+      "start": "2026-10-14T20:18:50.287874+00:00",
+      "end": "2026-10-14T20:20:59.269893+00:00",
+      "duration_seconds": 64.5,
+      "records": 85147,
+      "throughput_per_second": 1320.1,
+      "repeats": 2,
+      "durations_s": [
+        64.9,
+        64.1
+      ],
+      "mean_seconds": 64.5,
+      "min_seconds": 64.1,
+      "max_seconds": 64.9,
+      "spread_seconds": 0.8,
+      "output_dir": "data/processed_e2e/one_year",
+      "stdev_seconds": 0.6,
+      "input_records": 85147,
+      "output_records": 85147,
+      "records_missing_cvss": 5093,
+      "records_missing_vendor": 6056,
+      "note": "mean of 2 repetitions; spread 0.8 s"
+    },
+    {
+      "stage": "replay",
+      "measured": true,
+      "start": "2026-10-14T20:21:01.401440+00:00",
+      "end": "2026-10-14T20:22:14.750382+00:00",
+      "duration_seconds": 73.3,
+      "records": 85147,
+      "throughput_per_second": 1160.8,
+      "note": "single measurement",
+      "skipped": 0,
+      "input_csv": "cves_cleaned.csv",
+      "max_events": 85147,
+      "delay_seconds": 0
+    },
+    {
+      "stage": "consume",
+      "measured": true,
+      "start": "2026-10-14T20:22:15.169644+00:00",
+      "end": "2026-10-14T20:23:13.278963+00:00",
+      "duration_seconds": 58.1,
+      "records": 85147,
+      "throughput_per_second": 1465.3,
+      "note": "single measurement",
+      "duplicates": 0,
+      "invalid": 0,
+      "failed_inserts": 0,
+      "max_events": 85147,
+      "client_attempts": 1
+    },
+    {
+      "stage": "load",
+      "measured": true,
+      "start": "2026-10-14T20:23:14.130614+00:00",
+      "end": "2026-10-14T20:23:44.325893+00:00",
+      "duration_seconds": 30.2,
+      "records": 85147,
+      "throughput_per_second": 2819.9,
+      "note": "single measurement; PUT and COPY INTO timed separately from Snowflake query history",
+      "per_statement_seconds": {
+        "put_files": 0.3,
+        "copy": 2.7
+      },
+      "parquet_dir": "data\\processed_e2e\\one_year\\cves_cleaned.parquet",
+      "table": "raw.cve_raw_e2e"
+    }
+  ],
+  "mongo_reset": "dropped collection, 282755 documents removed",
+  "ended": "2026-10-14T20:23:45.056970+00:00"
+}
